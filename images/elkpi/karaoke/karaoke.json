@@ -1,0 +1,110 @@
+{
+    "host_config" : {
+        "samplerate" : 48000,
+        "playing_mode" : "playing"
+    },
+    "tracks" : [
+        {
+            "name" : "main",
+            "channels" : 2,
+            "inputs" : [
+                {
+                    "engine_bus" : 0,
+                    "track_bus" : 0
+                }
+            ],
+            "outputs" : [
+                {
+                    "engine_bus" : 0,
+                    "track_bus" : 0
+                }
+            ],
+            "plugins" : [
+                {
+                    "uid" : "sushi.testing.gain",
+                    "name" : "gain",
+                    "type" : "internal"
+                },
+                {
+                    "uid" : "sushi.testing.gain",
+                    "name" : "gain2",
+                    "type" : "internal"
+                },
+                {
+                    "uid" : "sushi.brickworks.eq3band",
+                    "name" : "eq3band",
+                    "type" : "internal"
+                },
+                {
+                    "uid" : "sushi.testing.send",
+                    "name" : "reverb_send",
+                    "type" : "internal"
+                }
+            ]
+        },
+        {
+            "name" : "aux",
+            "channels" : 2,
+            "inputs" : [],
+            "outputs" : [
+                {
+                    "engine_bus" : 0,
+                    "track_bus" : 0
+                }
+            ],
+            "plugins" : [
+                {
+                    "uid" : "sushi.testing.return",
+                    "name" : "return",
+                    "type" : "internal"
+                },
+                {
+                    "uid" : "sushi.brickworks.comb_delay",
+                    "name" : "comb_delay",
+                    "type" : "internal"
+                }
+            ]
+        }
+    ],
+    "initial_state" : [
+        {
+            "processor": "gain",
+            "parameters" : {
+                "gain" : 1
+            }
+        },
+        {
+            "processor": "gain2",
+            "parameters" : {
+                "gain" : 0.9
+            }
+        },
+        {
+            "processor" : "eq3band",
+            "parameters" : {
+                "lowshelf_gain" : 0.5,
+                "highshelf_gain" : 0.4,
+                "peak_gain" : 0.83
+            }
+        },
+        {
+            "processor" : "reverb_send",
+            "parameters" : {
+                "gain": 0.8
+            },
+            "properties" : {
+                "destination_name" : "return"
+            }
+        },
+        {
+            "processor" : "comb_delay",
+            "parameters" : {
+                "ff_delay" : 0.25,
+                "fb_delay" : 0.25,
+                "blend" : 1,
+                "ff_coeff" : 0.635,
+                "fb_coeff" : 0.635
+            }
+        }
+    ]
+}

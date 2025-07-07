@@ -1,0 +1,3 @@
+FROM raspios:2025-05-13-bookworm-armhf-lite
+
+RUN touch /angelstouch

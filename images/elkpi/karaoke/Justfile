@@ -1,0 +1,5 @@
+import '../../../lib/Justfile'
+
+base_image_url := "https://github.com/elk-audio/elk-pi/releases/download/1.1.0/elkpi-audio-os-image-raspberrypi4-64-v1.1.0.wic.bz2"
+base_image_name := "elkpi:1.1.0"
+image_name := "karaoke"
