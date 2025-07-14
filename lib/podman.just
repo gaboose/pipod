@@ -25,3 +25,12 @@ export docker_image_name path_to_image_file partition_number:
     sudo podman image unmount {{docker_image_name}}
 
     just disks unmount $image_file {{partition_number}}
+
+[no-cd]
+rsync docker_image_name destination_path:
+    #!/usr/bin/env bash
+    set -e
+
+    mnt=$(sudo podman image mount {{docker_image_name}})
+    sudo rsync -av --delete ${mnt}/ {{destination_path}}
+    sudo podman image unmount {{docker_image_name}}
