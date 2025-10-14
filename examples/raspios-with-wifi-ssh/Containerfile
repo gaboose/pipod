@@ -1,8 +1,0 @@
-FROM raspios:2025-05-13-bookworm-armhf-lite
-
-RUN systemctl enable ssh
-
-RUN --mount=type=bind,src=secrets,dst=/root/secrets,ro \
-    cat /root/secrets/chpasswd.txt | chpasswd && \
-    cp /root/secrets/my_wifi.nmconnection /etc/NetworkManager/system-connections && \
-    chmod 600 /etc/NetworkManager/system-connections/my_wifi.nmconnection

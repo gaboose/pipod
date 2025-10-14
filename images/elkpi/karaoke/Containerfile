@@ -1,9 +1,0 @@
-FROM elkpi:1.1.0
-
-# Enable read-only access to root file system on boot
-RUN elk_system_utils --ro-rootfs enable
-
-# Configure automatic sushi startup
-RUN systemctl enable sushi
-ADD karaoke.json /home/mind/config_files/karaoke.json
-RUN sed -i 's/empty.json/karaoke.json/g' /lib/systemd/system/sushi.service

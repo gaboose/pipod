@@ -1,9 +1,0 @@
-FROM elkpi:1.0.0
-
-# Enable read-only access to root file system on boot
-RUN elk_system_utils --ro-rootfs enable
-
-RUN --mount=type=bind,src=secrets,dst=/root/secrets,ro \
-    mkdir -p /var/lib/connman && \
-    cp /root/secrets/my_wifi.config /var/lib/connman && \
-    chmod 600 /var/lib/connman/my_wifi.config

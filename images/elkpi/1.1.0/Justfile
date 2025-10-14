@@ -1,5 +1,0 @@
-import '../../../lib/Justfile'
-
-base_image_url := "https://github.com/elk-audio/elk-pi/releases/download/1.1.0/elkpi-audio-os-image-raspberrypi4-64-v1.1.0.wic.bz2"
-base_image_sha256 := "21a7a831cb536d175164ac8c8ab90298e20e8186830f3851a37402ad2f4931d2"
-base_image_name := "elkpi:1.1.0"
