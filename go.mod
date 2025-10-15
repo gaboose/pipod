@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/alecthomas/kong v1.12.0
 	github.com/gaboose/afero-guestfs v0.0.12
-	github.com/gaboose/aferosync v0.0.1
+	github.com/gaboose/aferosync v0.0.2
 	github.com/mholt/archives v0.1.4
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/stretchr/testify v1.11.1

@@ -50,6 +50,8 @@ github.com/gaboose/afero-guestfs v0.0.12 h1:59NOnhWSi7ugE8z5IGivCCMSuNrEnuE8HX9P
 github.com/gaboose/afero-guestfs v0.0.12/go.mod h1:NS3tAyx/2EXL1jTRMq9lIgiUKjQ+a49X6ysOJYTIDZk=
 github.com/gaboose/aferosync v0.0.1 h1:AqTophC0k9k2QJ6b1dFCyhi20HikFcBQCcXk8yb22MY=
 github.com/gaboose/aferosync v0.0.1/go.mod h1:JMGdoeFjvwCCPEO84qTmwln6BeVXx3N+9e5kkYHyx+s=
+github.com/gaboose/aferosync v0.0.2 h1:SCTUxbG705EJLTPhsixFG9VJ3qMJwb8q3XVqBav5Jj0=
+github.com/gaboose/aferosync v0.0.2/go.mod h1:JMGdoeFjvwCCPEO84qTmwln6BeVXx3N+9e5kkYHyx+s=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=

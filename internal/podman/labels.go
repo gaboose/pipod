@@ -11,13 +11,13 @@ type PipodLabels struct {
 
 func (pdl PipodLabels) Validate() error {
 	if pdl.SourceURL == "" {
-		return fmt.Errorf(`com.github.gaboose.pipod.disk.source not found`)
+		return fmt.Errorf(`com.github.gaboose.pipod.source.url not found`)
 	}
 	if pdl.SourceSHA256 == "" {
-		return fmt.Errorf(`com.github.gaboose.pipod.disk.sha256 not found`)
+		return fmt.Errorf(`com.github.gaboose.pipod.source.sha256 not found`)
 	}
 	if pdl.SourcePartitionsImport == "" {
-		return fmt.Errorf(`com.github.gaboose.pipod.disk.partition not found`)
+		return fmt.Errorf(`com.github.gaboose.pipod.source.partitions.import not found`)
 	}
 
 	return nil

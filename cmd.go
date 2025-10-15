@@ -11,6 +11,7 @@ import (
 	aferoguestfs "github.com/gaboose/afero-guestfs"
 	"github.com/gaboose/aferosync"
 	"github.com/gaboose/pipod/internal/guestfish"
+	"github.com/gaboose/pipod/internal/iio"
 	"github.com/gaboose/pipod/internal/podman"
 	"github.com/mholt/archives"
 	"github.com/pelletier/go-toml/v2"
@@ -101,20 +102,32 @@ func (b *ContainerBuildCmd) Run() error {
 
 type DiskCmd struct {
 	Build DiskBuildCmd `cmd:"" help:"Build a disk image"`
+	Sync  DiskSyncCmd  `cmd:"" help:"Sync a disk image from a tar or a container image"`
 }
 
 type DiskBuildCmd struct {
 	Platform string `default:"linux/arm64" help:"set the OS/ARCH[/VARIANT] of the image to the provided value"`
 }
 
+const (
+	green          = "\033[32m"
+	reset          = "\033[0m"
+	cursorUp       = "\033[%dA"
+	eraseInDisplay = "\033[J"
+	eraseInLine    = "\033[K"
+)
+
+var aferoSyncStdout = iio.Writer(os.Stdout.Write).WithPrefix(green + "[aferosync]" + reset)
+
 func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
+	fmt.Printf("Building . for platform %s...\n", b.Platform)
 	image, err := podman.Build(b.Platform)
 	if err != nil {
 		return fmt.Errorf("failed to build podman image: %w", err)
 	}
 
 	var labels podman.PipodLabels
-	if err := image.UnmarshalLabels(&labels); err != nil {
+	if err := image.UnmarshalLabelsToml(&labels); err != nil {
 		return fmt.Errorf("failed to get image labels: %w", err)
 	}
 
@@ -122,69 +135,97 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 		return fmt.Errorf("labels validation failed: %w", err)
 	}
 
+	if err := os.RemoveAll(BUILD_DIR); err != nil {
+		return fmt.Errorf("failed to remove build dir: %w", err)
+	}
+
 	if err = os.Mkdir(BUILD_DIR, 0755); err != nil {
 		return fmt.Errorf("failed to make build dir: %w", err)
 	}
 
-	dest := removeArchiveExt(filepath.Join(BUILD_DIR, filepath.Base(labels.SourceURL))) + ".part"
+	fmt.Printf("Downloading %s...\n", labels.SourceURL)
+	dest := removeArchiveExt(filepath.Join(BUILD_DIR, filepath.Base(labels.SourceURL)))
+	destPart := dest + ".part"
 	rc, n := downloader(labels.SourceURL)
 	rc = progress(rc, n, os.Stdout)
 	rc = verifier(rc, labels.SourceSHA256)
 	rc = decompresser(rc, labels.SourceURL)
-	if err := save(rc, dest); err != nil {
+	if err := save(rc, destPart); err != nil {
 		return fmt.Errorf("failed to download %s: %w", labels.SourceURL, err)
 	}
 
+	fmt.Printf("Syncing with %s...\n", destPart)
 	reader, err := image.TarOut()
 	if err != nil {
 		return fmt.Errorf("failed to tar podman image: %w", err)
 	}
 	defer reader.Close()
 
-	fsys, err := aferoguestfs.OpenPartitionFs(dest, "/dev/"+labels.SourcePartitionsImport)
+	fsys, err := aferoguestfs.OpenPartitionFs(destPart, "/dev/"+labels.SourcePartitionsImport)
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
 
 	sync := aferosync.New(fsys, tar.NewReader(reader))
+	firstUpdate := true
 	for sync.Next() {
-		fmt.Println(sync.Update())
+		if !firstUpdate {
+			fmt.Fprintf(aferoSyncStdout, cursorUp+"\r"+eraseInDisplay, 1)
+		}
+		fmt.Fprintln(aferoSyncStdout, sync.Update())
+		fmt.Fprint(aferoSyncStdout, sync.Summary())
+		firstUpdate = false
 	}
+	fmt.Fprintln(aferoSyncStdout)
 	if err := sync.Err(); err != nil {
 		return fmt.Errorf("failed to sync partition: %w", err)
 	}
 
 	if len(labels.TargetFilename) > 0 {
-		if err := os.Rename(dest, filepath.Join(BUILD_DIR, labels.TargetFilename)); err != nil {
-			return fmt.Errorf("failed to rename: %w", err)
-		}
+		dest = filepath.Join(BUILD_DIR, labels.TargetFilename)
 	}
+
+	if err := os.Rename(destPart, dest); err != nil {
+		return fmt.Errorf("failed to rename: %w", err)
+	}
+
+	fmt.Println("Build complete.")
+	fmt.Println(dest)
 
 	return nil
 }
 
-type SyncCmd struct {
-	Tar       *os.File `arg:"" existingfile:"" help:"Tar archive of an image"`
-	Disk      string   `arg:"" help:"Path to disk file"`
-	Partition string   `arg:"" help:"Partition device"`
+type DiskSyncCmd struct {
+	Tar            *os.File `xor:"src" required:"" existingfile:"" help:"Sync from a tar archive (either this )"`
+	ContainerImage string   `xor:"src" required:"" help:"Sync from a container image"`
+	Disk           string   `arg:"" help:"Path to disk image"`
+	Partition      string   `arg:"" default:"sda2" help:"Partition device"`
 }
 
-func (cmd *SyncCmd) Run() error {
-	defer cmd.Tar.Close()
-
-	fmt.Println("Launching...")
-
-	afs, err := aferoguestfs.OpenPartitionFs(cmd.Disk, cmd.Partition)
+func (cmd *DiskSyncCmd) Run() error {
+	afs, err := aferoguestfs.OpenPartitionFs(cmd.Disk, "/dev/"+cmd.Partition)
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
 
-	fmt.Println("Syncing...")
+	var tarReader *tar.Reader
+	if cmd.Tar != nil {
+		tarReader = tar.NewReader(cmd.Tar)
+		defer cmd.Tar.Close()
+	} else if cmd.ContainerImage != "" {
+		rc, err := podman.Image{Name: cmd.ContainerImage}.TarOut()
+		if err != nil {
+			return fmt.Errorf("failed to tar container image %s: %w", cmd.ContainerImage, err)
+		}
+		defer rc.Close()
+		tarReader = tar.NewReader(rc)
+	}
 
-	sync := aferosync.New(afs, tar.NewReader(cmd.Tar))
+	sync := aferosync.New(afs, tarReader)
 	for sync.Next() {
 		fmt.Println(sync.Update())
 	}
+	fmt.Println(sync.Summary())
 	if err := sync.Err(); err != nil {
 		return fmt.Errorf("failed to sync: %w", err)
 	}

@@ -21,7 +21,7 @@ func Build(platform string) (*Image, error) {
 	}
 	stdoutWriter.CloseWithError(io.EOF)
 
-	return &Image{name: <-lastLineCh}, nil
+	return &Image{Name: <-lastLineCh}, nil
 }
 
 func startLastLineReader(r io.Reader) <-chan string {
