@@ -11,7 +11,7 @@ type CLI struct {
 
 func main() {
 	var cli CLI
-	ctx := kong.Parse(&cli, kong.Name("pipod"), kong.ShortUsageOnError())
+	ctx := kong.Parse(&cli, kong.Name("pipod"))
 	err := ctx.Run()
 	ctx.FatalIfErrorf(err)
 }

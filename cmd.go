@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,15 +16,15 @@ import (
 	"github.com/gaboose/pipod/internal/podman"
 	"github.com/mholt/archives"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/spf13/afero"
 )
 
 const (
-	BUILD_DIR = "build"
-	TEMP_DIR  = "tmp"
+	TEMP_DIR = "tmp"
 )
 
 type ContainerCmd struct {
-	Build ContainerBuildCmd `cmd:"" help:"Build a container image"`
+	Build ContainerBuildCmd `cmd:"" help:"Build a container image from a pipod.toml"`
 }
 
 type ContainerBuildCmd struct {
@@ -101,12 +102,15 @@ func (b *ContainerBuildCmd) Run() error {
 }
 
 type DiskCmd struct {
-	Build DiskBuildCmd `cmd:"" help:"Build a disk image"`
+	Build DiskBuildCmd `cmd:"" help:"Build a disk image from a Containerfile"`
 	Sync  DiskSyncCmd  `cmd:"" help:"Sync a disk image from a tar or a container image"`
 }
 
 type DiskBuildCmd struct {
-	Platform string `default:"linux/arm64" help:"set the OS/ARCH[/VARIANT] of the image to the provided value"`
+	Out           string `help:"File to write to" default:"build/out.img"`
+	Platform      string `default:"linux/arm64" help:"Set the OS/ARCH[/VARIANT] of the image"`
+	ForceDownload bool   `help:"Force download even if the output file exists"`
+	Verbose       bool   `short:"v" help:"Print paths of all synced files"`
 }
 
 const (
@@ -114,7 +118,6 @@ const (
 	reset          = "\033[0m"
 	cursorUp       = "\033[%dA"
 	eraseInDisplay = "\033[J"
-	eraseInLine    = "\033[K"
 )
 
 var aferoSyncStdout = iio.Writer(os.Stdout.Write).WithPrefix(green + "[aferosync]" + reset)
@@ -135,71 +138,64 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 		return fmt.Errorf("labels validation failed: %w", err)
 	}
 
-	if err := os.RemoveAll(BUILD_DIR); err != nil {
-		return fmt.Errorf("failed to remove build dir: %w", err)
+	outPart := b.Out + ".part"
+	if _, err := os.Stat(b.Out); err == nil && !b.ForceDownload {
+		fmt.Printf("Skipping the download step: %s already exists (rerun with --force-download to download anyway)\n", b.Out)
+		if err := os.Rename(b.Out, outPart); err != nil {
+			return fmt.Errorf("failed to rename %s to %s: %w", b.Out, outPart, err)
+		}
+	} else {
+		if err = os.MkdirAll(filepath.Dir(b.Out), 0755); err != nil {
+			return fmt.Errorf("failed to make build dir: %w", err)
+		}
+
+		fmt.Printf("Downloading %s...\n", labels.SourceURL)
+		rc, n := downloader(labels.SourceURL)
+		rc = progress(rc, n, os.Stdout)
+		rc = verifier(rc, labels.SourceSHA256)
+		rc = decompresser(rc, labels.SourceURL)
+		if err := save(rc, outPart); err != nil {
+			return fmt.Errorf("failed to download %s: %w", labels.SourceURL, err)
+		}
 	}
 
-	if err = os.Mkdir(BUILD_DIR, 0755); err != nil {
-		return fmt.Errorf("failed to make build dir: %w", err)
-	}
-
-	fmt.Printf("Downloading %s...\n", labels.SourceURL)
-	dest := removeArchiveExt(filepath.Join(BUILD_DIR, filepath.Base(labels.SourceURL)))
-	destPart := dest + ".part"
-	rc, n := downloader(labels.SourceURL)
-	rc = progress(rc, n, os.Stdout)
-	rc = verifier(rc, labels.SourceSHA256)
-	rc = decompresser(rc, labels.SourceURL)
-	if err := save(rc, destPart); err != nil {
-		return fmt.Errorf("failed to download %s: %w", labels.SourceURL, err)
-	}
-
-	fmt.Printf("Syncing with %s...\n", destPart)
+	fmt.Printf("Syncing with %s...\n", outPart)
 	reader, err := image.TarOut()
 	if err != nil {
 		return fmt.Errorf("failed to tar podman image: %w", err)
 	}
 	defer reader.Close()
 
-	fsys, err := aferoguestfs.OpenPartitionFs(destPart, "/dev/"+labels.SourcePartitionsImport)
+	fsys, err := aferoguestfs.OpenPartitionFs(outPart, "/dev/"+labels.SourcePartitionsImport)
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
 
-	sync := aferosync.New(fsys, tar.NewReader(reader))
-	firstUpdate := true
-	for sync.Next() {
-		if !firstUpdate {
-			fmt.Fprintf(aferoSyncStdout, cursorUp+"\r"+eraseInDisplay, 1)
-		}
-		fmt.Fprintln(aferoSyncStdout, sync.Update())
-		fmt.Fprint(aferoSyncStdout, sync.Summary())
-		firstUpdate = false
+	if b.Verbose {
+		err = aferoSyncVerbose(fsys, tar.NewReader(reader), aferoSyncStdout)
+	} else {
+		err = aferoSyncCompact(fsys, tar.NewReader(reader), aferoSyncStdout)
 	}
-	fmt.Fprintln(aferoSyncStdout)
-	if err := sync.Err(); err != nil {
-		return fmt.Errorf("failed to sync partition: %w", err)
+	if err != nil {
+		return fmt.Errorf("failed to sync: %w", err)
 	}
 
-	if len(labels.TargetFilename) > 0 {
-		dest = filepath.Join(BUILD_DIR, labels.TargetFilename)
-	}
-
-	if err := os.Rename(destPart, dest); err != nil {
+	if err := os.Rename(outPart, b.Out); err != nil {
 		return fmt.Errorf("failed to rename: %w", err)
 	}
 
 	fmt.Println("Build complete.")
-	fmt.Println(dest)
+	fmt.Println(b.Out)
 
 	return nil
 }
 
 type DiskSyncCmd struct {
-	Tar            *os.File `xor:"src" required:"" existingfile:"" help:"Sync from a tar archive (either this )"`
-	ContainerImage string   `xor:"src" required:"" help:"Sync from a container image"`
+	Tar            *os.File `xor:"src" required:"" existingfile:"" help:"Sync from a tar archive (cannot be used with --container-image)"`
+	ContainerImage string   `xor:"src" required:"" help:"Sync from a container image (cannot be used with --tar)"`
 	Disk           string   `arg:"" help:"Path to disk image"`
-	Partition      string   `arg:"" default:"sda2" help:"Partition device"`
+	Partition      string   `arg:"" default:"sda2" help:"Partition device (default: sda2)"`
+	Verbose        bool     `short:"v" help:"Print paths of all synced files"`
 }
 
 func (cmd *DiskSyncCmd) Run() error {
@@ -221,16 +217,43 @@ func (cmd *DiskSyncCmd) Run() error {
 		tarReader = tar.NewReader(rc)
 	}
 
-	sync := aferosync.New(afs, tarReader)
-	for sync.Next() {
-		fmt.Println(sync.Update())
+	if cmd.Verbose {
+		err = aferoSyncVerbose(afs, tarReader, os.Stdout)
+	} else {
+		err = aferoSyncCompact(afs, tarReader, os.Stdout)
 	}
-	fmt.Println(sync.Summary())
-	if err := sync.Err(); err != nil {
+	if err != nil {
 		return fmt.Errorf("failed to sync: %w", err)
 	}
 
 	return nil
+}
+
+func aferoSyncVerbose(afs afero.Fs, tarReader *tar.Reader, w io.Writer) error {
+	sync := aferosync.New(afs, tarReader)
+	for sync.Next() {
+		fmt.Fprintln(w, sync.Update())
+	}
+	fmt.Fprintln(w, sync.Summary())
+	return sync.Err()
+}
+
+func aferoSyncCompact(afs afero.Fs, tarReader *tar.Reader, w io.Writer) error {
+	sync := aferosync.New(afs, tarReader)
+	firstUpdate := true
+	fmt.Fprint(w, sync.Summary())
+	for sync.Next() {
+		if firstUpdate {
+			fmt.Fprint(w, "\r"+eraseInDisplay)
+		} else {
+			fmt.Fprintf(w, cursorUp+"\r"+eraseInDisplay, 1)
+		}
+		fmt.Fprintln(w, sync.Update())
+		fmt.Fprint(w, sync.Summary())
+		firstUpdate = false
+	}
+	fmt.Fprintln(w)
+	return sync.Err()
 }
 
 func removeArchiveExt(name string) string {
