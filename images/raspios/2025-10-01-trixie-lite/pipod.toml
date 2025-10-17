@@ -1,0 +1,14 @@
+name = "ghcr.io/gaboose/raspios:2025-10-01-trixie-lite"
+
+[labels]
+"org.opencontainers.image.source"="https://github.com/gaboose/pipod"
+
+[platform.'linux/arm64'.labels]
+"com.github.gaboose.pipod.source.url" = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-10-02/2025-10-01-raspios-trixie-arm64-lite.img.xz"
+"com.github.gaboose.pipod.source.sha256" = "79146135607ffe8acac94e5ff501de6fc49583117de5ad08c45a32c73ae2a027"
+"com.github.gaboose.pipod.source.partitions.import" = "sda2"
+
+[platform.'linux/armhf'.labels]
+"com.github.gaboose.pipod.source.url" = "https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-10-02/2025-10-01-raspios-trixie-armhf-lite.img.xz"
+"com.github.gaboose.pipod.source.sha256" = "22a02428e7de5345ccf865fa3e2fe06f3aa56afdde98bc23d9d91e83320b3511"
+"com.github.gaboose.pipod.source.partitions.import" = "sda2"

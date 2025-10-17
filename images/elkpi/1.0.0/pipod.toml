@@ -1,0 +1,9 @@
+name = "ghcr.io/gaboose/elkpi:1.0.0"
+
+[labels]
+"org.opencontainers.image.source" = "https://github.com/gaboose/pipod"
+
+[platform.'linux/arm64'.labels]
+"com.github.gaboose.pipod.source.url" = "https://github.com/elk-audio/elk-pi/releases/download/1.0.0/elkpi-audio-os-image-raspberrypi4-64-v1.0.0.wic.bz2"
+"com.github.gaboose.pipod.source.sha256" = "a97216f6d19c381b39ce2fd731788e548032e46011c23c26be67d71a9d916515"
+"com.github.gaboose.pipod.source.partitions.import" = "sda2"
