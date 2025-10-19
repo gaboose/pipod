@@ -1,0 +1,19 @@
+[connection]
+id={{ .SSID }}
+uuid={{ randomUUID }}
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid={{ .SSID }}
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk={{ .Password }}
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto

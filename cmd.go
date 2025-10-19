@@ -14,6 +14,7 @@ import (
 	"github.com/gaboose/pipod/internal/guestfish"
 	"github.com/gaboose/pipod/internal/iio"
 	"github.com/gaboose/pipod/internal/podman"
+	"github.com/gaboose/pipod/internal/wifi"
 	"github.com/mholt/archives"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/afero"
@@ -104,6 +105,7 @@ func (b *ContainerBuildCmd) Run() error {
 type DiskCmd struct {
 	Build DiskBuildCmd `cmd:"" help:"Build a disk image from a Containerfile"`
 	Sync  DiskSyncCmd  `cmd:"" help:"Sync a disk image from a tar or a container image"`
+	Wifi  DiskWifiCmd  `cmd:"" help:"Set up a wifi connection"`
 }
 
 type DiskBuildCmd struct {
@@ -191,10 +193,10 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 }
 
 type DiskSyncCmd struct {
+	Disk           string   `arg:"" help:"Path to disk image"`
+	Partition      string   `default:"sda2" help:"Partition device (default: sda2)"`
 	Tar            *os.File `xor:"src" required:"" existingfile:"" help:"Sync from a tar archive (cannot be used with --container-image)"`
 	ContainerImage string   `xor:"src" required:"" help:"Sync from a container image (cannot be used with --tar)"`
-	Disk           string   `arg:"" help:"Path to disk image"`
-	Partition      string   `arg:"" default:"sda2" help:"Partition device (default: sda2)"`
 	Verbose        bool     `short:"v" help:"Print paths of all synced files"`
 }
 
@@ -224,6 +226,49 @@ func (cmd *DiskSyncCmd) Run() error {
 	}
 	if err != nil {
 		return fmt.Errorf("failed to sync: %w", err)
+	}
+
+	return nil
+}
+
+type DiskWifiCmd struct {
+	Disk          string `arg:"" help:"Path to disk image"`
+	Partition     string `default:"sda2" help:"Partition device (default: sda2)"`
+	SSID          string `required:"" help:"SSID fot wifi network to connect to"`
+	Password      string `xor:"P" required:"" help:"Password of the SSID network (cannot be used with --password-stdin)"`
+	PasswordStdin bool   `xor:"P" required:"" help:"Read password from stdin (cannot be used with --password)"`
+}
+
+func (cmd *DiskWifiCmd) Run() error {
+	afs, err := aferoguestfs.OpenPartitionFs(cmd.Disk, "/dev/"+cmd.Partition)
+	if err != nil {
+		return fmt.Errorf("failed to open partition: %w", err)
+	}
+	defer afs.Close()
+
+	if cmd.PasswordStdin {
+		buf, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read form stdin: %w", err)
+		}
+		cmd.Password = strings.TrimSpace(string(buf))
+	}
+
+	nm, err := wifi.NewNetworkManager(afs)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("network manager not found")
+	} else if err != nil {
+		return fmt.Errorf("failed to create NetworkManager: %w", err)
+	}
+	fmt.Println("NetworkManager detected")
+
+	addedPaths, err := nm.AddConnection(cmd.SSID, cmd.Password)
+	if err != nil {
+		return fmt.Errorf("failed to add connection profile: %w", err)
+	}
+
+	for _, path := range addedPaths {
+		fmt.Printf("added %s\n", path)
 	}
 
 	return nil

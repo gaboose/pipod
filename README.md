@@ -1,3 +1,13 @@
+## Pipod
+
+A tool to build Raspberry Pi images with [podman](https://podman.io) and [libguestfs](https://libguestfs.org).
+
+## Dependencies
+
+```
+pacman -S podman libguestfs qemu-user-static
+```
+
 ## Resources
 
 - [Building Raspberry Pi Disk Images with Docker: a case study in software automation](https://www.boulderes.com/resource-library/building-raspberry-pi-disk-images-with-docker-a-case-study-in-software-automation)
