@@ -6,10 +6,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/gaboose/pipod/internal/iio"
 	"github.com/pelletier/go-toml/v2"
 )
 
 type importOpts struct {
+	name    string
 	os      string
 	arch    string
 	variant string
@@ -60,6 +62,12 @@ func WithPlatform(platform string) ImportOption {
 	})
 }
 
+func WithName(name string) ImportOption {
+	return importOpt(func(opts *importOpts) {
+		opts.name = name
+	})
+}
+
 func WithTags(tags ...string) Option {
 	return Option{
 		importOpt: func(opts *importOpts) {
@@ -100,7 +108,7 @@ func WithLabelsToml(labels any) ImportOption {
 	})
 }
 
-func Import(name string, reader io.ReadCloser, opts ...ImportOption) error {
+func Import(reader io.ReadCloser, opts ...ImportOption) (*Image, error) {
 	defer reader.Close()
 
 	var oo = importOpts{}
@@ -108,10 +116,13 @@ func Import(name string, reader io.ReadCloser, opts ...ImportOption) error {
 		o.applyImportOpt(&oo)
 	}
 	if len(oo.errs) > 0 {
-		return fmt.Errorf("failed to set options: %w", oo.errs[0])
+		return nil, fmt.Errorf("failed to set options: %w", oo.errs[0])
 	}
 
-	podmanArgs := []string{"import", "-", name}
+	podmanArgs := []string{"import", "-"}
+	if oo.name != "" {
+		podmanArgs = append(podmanArgs, oo.name)
+	}
 
 	if oo.os != "" {
 		podmanArgs = append(podmanArgs, "--os", oo.os)
@@ -129,20 +140,24 @@ func Import(name string, reader io.ReadCloser, opts ...ImportOption) error {
 		podmanArgs = append(podmanArgs, "--change", fmt.Sprintf("LABEL %q=%q", k, v))
 	}
 
+	lastLineWriter, lastLineBuf := iio.LastLine()
+
 	podmanCmd := exec.Command("podman", podmanArgs...)
 	podmanCmd.Stdin = reader
-	podmanCmd.Stdout = stdout
+	podmanCmd.Stdout = io.MultiWriter(stdout, lastLineWriter)
 	podmanCmd.Stderr = stderr
 
 	if err := podmanCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run podman import: %w", err)
+		return nil, fmt.Errorf("failed to run podman import: %w", err)
 	}
 
+	reference := lastLineBuf.String()
+
 	if len(oo.tags) > 0 {
-		if err := Tag(name, oo.tags...); err != nil {
-			return fmt.Errorf("failed to tag image: %w", err)
+		if err := Tag(reference, oo.tags...); err != nil {
+			return nil, fmt.Errorf("failed to tag image: %w", err)
 		}
 	}
 
-	return nil
+	return &Image{Name: reference}, nil
 }

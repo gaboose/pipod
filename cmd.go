@@ -30,6 +30,7 @@ type ContainerCmd struct {
 
 type ContainerBuildCmd struct {
 	Spec string `default:"pipod.toml" help:"Path to pipod.toml" type:"existingfile"`
+	Tag  string `short:"t" help:"Tagged name to apply to the built imageor manifest"`
 }
 
 func (b *ContainerBuildCmd) Run() error {
@@ -45,6 +46,10 @@ func (b *ContainerBuildCmd) Run() error {
 
 	if err := spec.validate(); err != nil {
 		return fmt.Errorf("toml: %w", err)
+	}
+
+	if len(spec.Platform) > 1 && b.Tag == "" {
+		return fmt.Errorf("--tag must be set when building a multiarch image")
 	}
 
 	if err := os.RemoveAll(TEMP_DIR); err != nil {
@@ -72,33 +77,50 @@ func (b *ContainerBuildCmd) Run() error {
 			return fmt.Errorf("failed to rename: %w", err)
 		}
 
-		image := strings.ReplaceAll(platformName, ":", "-")
-		image = strings.ReplaceAll(image, "/", "-")
-		image = spec.Name + "-" + image
+		name := b.Tag
+		if len(spec.Platform) > 1 {
+			name += "-" + platformName
+			name = strings.ReplaceAll(name, ":", "-")
+			name = strings.ReplaceAll(name, "/", "-")
+		}
 
-		fmt.Printf("Importing %s...\n", image)
+		if name == "" {
+			fmt.Printf("Importing...\n")
+		} else {
+			fmt.Printf("Importing %s...\n", name)
+		}
 		readCloser := guestfish.TarOut(workingPath, "/dev/"+platform.Labels.SourcePartitionsImport)
 
-		if err := podman.Import(
-			image,
-			readCloser,
+		importOpts := []podman.ImportOption{
 			podman.WithPlatform(platformName),
 			podman.WithLabels(spec.Labels),
 			podman.WithLabelsToml(platform.Labels),
-		); err != nil {
+		}
+
+		if name != "" {
+			importOpts = append(importOpts, podman.WithName(name))
+		}
+
+		img, err := podman.Import(readCloser, importOpts...)
+		if err != nil {
 			return fmt.Errorf("failed to import podman image: %w", err)
 		}
 
-		images = append(images, image)
+		images = append(images, img.Name)
 	}
 
-	fmt.Printf("Creating manifest %s...\n", spec.Name)
-	if err := podman.CreateManifest(spec.Name, images); err != nil {
-		return fmt.Errorf("failed to create manifest: %w", err)
+	reference := b.Tag
+	if len(spec.Platform) == 1 {
+		reference = images[0]
+	} else {
+		fmt.Printf("Creating manifest...\n")
+		if err := podman.CreateManifest(reference, images); err != nil {
+			return fmt.Errorf("failed to create manifest: %w", err)
+		}
 	}
 
 	fmt.Println("Build complete.")
-	fmt.Println(spec.Name)
+	fmt.Println(reference)
 	return nil
 }
 

@@ -1,5 +1,3 @@
-name = "ghcr.io/gaboose/elkpi:1.0.0"
-
 [labels]
 "org.opencontainers.image.source" = "https://github.com/gaboose/pipod"
 

@@ -15,16 +15,11 @@ func (ps PlatformSpec) validate() error {
 }
 
 type Spec struct {
-	Name     string                  `toml:"name"`
 	Labels   map[string]string       `toml:"labels"`
 	Platform map[string]PlatformSpec `toml:"platform"`
 }
 
 func (s *Spec) validate() error {
-	if s.Name == "" {
-		return fmt.Errorf(`"name" not found`)
-	}
-
 	if len(s.Platform) == 0 {
 		return fmt.Errorf(`"platform" is empty`)
 	}
