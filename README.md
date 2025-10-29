@@ -31,6 +31,8 @@ FROM ghcr.io/gaboose/raspios
 RUN apt update && apt install -y snapserver && rm -rf /var/lib/apt/lists/*
 ```
 
+Note: See the [pipod-images](https://github.com/gaboose/pipod-images) repo for more examples.
+
 2. Build it with pipod (no sudo required).
 
 ```
@@ -49,7 +51,7 @@ That means you won't be able to set up a wifi connection with a `RUN nmcli ...` 
 cat password.txt | pipod disk wifi disk.img --ssid <ssid> --password-stdin
 ```
 
-This subcommand currently only supports NetworkManager.
+Note: This subcommand currently only supports NetworkManager but can easily be extended.
 
 ### Building a pipod image
 
@@ -69,7 +71,7 @@ If you don't want to use `ghcr.io/gaboose/raspios`, building your own pipod imag
 pipod container build -t mypipodimage
 ```
 
-This will take an arm64 disk image, import its `sda2` partition device into a podman and tag it `mypipodimage`.
+This will take an arm64 disk image, import its `sda2` partition device into a podman image and tag it `mypipodimage`.
 
 # Reference
 
@@ -97,7 +99,7 @@ Every key-value pair in a build spec is a container label and is applied to the 
 ## labels here are applied to the `linux/armhf` platform image
 ```
 
-Some labels starting with `com.github.gaboose.pipod` are special and determine how an image is built. A valid build spec contains at least one platform section with a `com.github.gaboose.pipod.source.url` label. See [labels](#labels) for more options.
+Some labels starting with `com.github.gaboose.pipod` are special and determine how the image is built. A valid build spec contains at least one platform section with a `com.github.gaboose.pipod.source.url` label. See [labels](#labels) for more options.
 
 See the [images](images) directory for examples.
 
@@ -120,4 +122,3 @@ See the [images](images) directory for examples.
 
 - [Building Raspberry Pi Disk Images with Docker: a case study in software automation](https://www.boulderes.com/resource-library/building-raspberry-pi-disk-images-with-docker-a-case-study-in-software-automation)
 - [Making a more resilient file system](https://pip.raspberrypi.com/categories/685-whitepapers-app-notes/documents/RP-003610-WP/Making-a-more-resilient-file-system.pdf)
-- [My collection of pipod images](https://github.com/gaboose/pipod-images)
