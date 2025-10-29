@@ -37,7 +37,9 @@ RUN apt update && apt install -y snapserver && rm -rf /var/lib/apt/lists/*
 pipod disk build -o disk.img
 ```
 
-This will download a raspios raw disk image, and overwrite its sda2 partition with the container filesystem.
+This will build the Containerfile, download a raspios raw disk image and overwrite its sda2 partition with the container image filesystem.
+
+---
 
 You can do a lot with this setup but there are limits. For example, containers don't run their own `systemd` so any command that communicates with a service on systemd won't work.
 
@@ -73,7 +75,7 @@ This will take an arm64 disk image, import its `sda2` partition device into a po
 
 ## Pipod Image
 
-A pipod image is a podman image with required [labels](#labels) set.
+A pipod image is a container image with [required labels](#labels) set. Any container image whose parent is a pipod image is also a pipod image.
 
 If you're looking for what to put in your `FROM` instruction, you can pick an image from the [packages section](https://github.com/gaboose?tab=packages&repo_name=pipod) or [build your own](#building-a-pipod-image).
 
@@ -118,3 +120,4 @@ See the [images](images) directory for examples.
 
 - [Building Raspberry Pi Disk Images with Docker: a case study in software automation](https://www.boulderes.com/resource-library/building-raspberry-pi-disk-images-with-docker-a-case-study-in-software-automation)
 - [Making a more resilient file system](https://pip.raspberrypi.com/categories/685-whitepapers-app-notes/documents/RP-003610-WP/Making-a-more-resilient-file-system.pdf)
+- [My collection of pipod images](https://github.com/gaboose/pipod-images)
