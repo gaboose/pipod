@@ -46,14 +46,8 @@ github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707/go.mod h1:qssHWj6
 github.com/dsnet/golib v0.0.0-20171103203638-1ea166775780/go.mod h1:Lj+Z9rebOhdfkVLjJ8T6VcRQv3SXugXy999NBtR9aFY=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
-github.com/gaboose/afero-guestfs v0.0.12 h1:59NOnhWSi7ugE8z5IGivCCMSuNrEnuE8HX9Pznwhlh8=
-github.com/gaboose/afero-guestfs v0.0.12/go.mod h1:NS3tAyx/2EXL1jTRMq9lIgiUKjQ+a49X6ysOJYTIDZk=
 github.com/gaboose/afero-guestfs v0.0.13 h1:frsejJ13VX2ekQMaOqQqN7VLGUOuvpiGYFYmftk3s/E=
 github.com/gaboose/afero-guestfs v0.0.13/go.mod h1:NS3tAyx/2EXL1jTRMq9lIgiUKjQ+a49X6ysOJYTIDZk=
-github.com/gaboose/aferosync v0.0.1 h1:AqTophC0k9k2QJ6b1dFCyhi20HikFcBQCcXk8yb22MY=
-github.com/gaboose/aferosync v0.0.1/go.mod h1:JMGdoeFjvwCCPEO84qTmwln6BeVXx3N+9e5kkYHyx+s=
-github.com/gaboose/aferosync v0.0.2 h1:SCTUxbG705EJLTPhsixFG9VJ3qMJwb8q3XVqBav5Jj0=
-github.com/gaboose/aferosync v0.0.2/go.mod h1:JMGdoeFjvwCCPEO84qTmwln6BeVXx3N+9e5kkYHyx+s=
 github.com/gaboose/aferosync v0.0.3 h1:agxVpx17/GEmFxQFdsAavGapo8ArbihbJUJTPI5ScNM=
 github.com/gaboose/aferosync v0.0.3/go.mod h1:wh/YQ0qFymwRVJUJfxD/WU/U6tp0CynTxIXiDJlI1Os=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
