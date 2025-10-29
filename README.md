@@ -47,7 +47,7 @@ That means you won't be able to set up a wifi connection with a `RUN nmcli ...` 
 cat password.txt | pipod disk wifi disk.img --ssid <ssid> --password-stdin
 ```
 
-This subcommand currently only supports NetworkManager, feel free to open an issue for ConnMan support.
+This subcommand currently only supports NetworkManager.
 
 ### Building a pipod image
 
@@ -58,7 +58,7 @@ If you don't want to use `ghcr.io/gaboose/raspios`, building your own pipod imag
 ```toml
 # pipod.toml
 [platform.'linux/arm64'.labels]
-"com.github.gaboose.pipod.source.url" = "https://example.com/disk-arm64.img.bz2"
+"com.github.gaboose.pipod.source.url" = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-10-02/2025-10-01-raspios-trixie-arm64-lite.img.xz"
 ```
 
 2. Build it with pipod.

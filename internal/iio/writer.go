@@ -13,7 +13,7 @@ func (w Writer) WithPrefix(s string) Writer {
 		nMap := make([]int, 1, len(oldPayload))
 
 		for _, b := range oldPayload {
-			if b == '\n' || b == '\r' {
+			if b == '\r' {
 				writePrefix = true
 			} else if writePrefix {
 				p = append(p, prefixBts...)
@@ -23,6 +23,10 @@ func (w Writer) WithPrefix(s string) Writer {
 
 			p = append(p, b)
 			nMap = appendNMap(nMap, true, 1)
+
+			if b == '\n' {
+				writePrefix = true
+			}
 		}
 
 		n, err = w(p)

@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/gaboose/pipod/internal/podman"
 )
 
 type PlatformSpec struct {
-	Labels podman.PipodLabels `toml:"labels"`
+	Labels PipodLabels `toml:"labels"`
 }
 
-func (ps PlatformSpec) validate() error {
-	return ps.Labels.Validate()
+func (ps *PlatformSpec) validate() error {
+	return ps.Labels.validate()
 }
 
 type Spec struct {
@@ -28,6 +26,7 @@ func (s *Spec) validate() error {
 		if err := platform.validate(); err != nil {
 			return fmt.Errorf(`platform.%s.labels: %w`, name, err)
 		}
+		s.Platform[name] = platform
 	}
 
 	return nil

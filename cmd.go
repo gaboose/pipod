@@ -29,8 +29,9 @@ type ContainerCmd struct {
 }
 
 type ContainerBuildCmd struct {
-	Spec string `default:"pipod.toml" help:"Path to pipod.toml" type:"existingfile"`
-	Tag  string `short:"t" help:"Tagged name to apply to the built imageor manifest"`
+	Spec     string `default:"pipod.toml" help:"Path to pipod.toml" type:"existingfile"`
+	Tag      string `short:"t" help:"Tagged name to apply to the built image"`
+	Manifest string `help:"Add the images to a manifest list. Creates manifest list if it does not exist"`
 }
 
 func (b *ContainerBuildCmd) Run() error {
@@ -48,8 +49,8 @@ func (b *ContainerBuildCmd) Run() error {
 		return fmt.Errorf("toml: %w", err)
 	}
 
-	if len(spec.Platform) > 1 && b.Tag == "" {
-		return fmt.Errorf("--tag must be set when building a multiarch image")
+	if len(spec.Platform) > 1 && b.Manifest == "" {
+		return fmt.Errorf("--manifest must be set when building a multiarch image")
 	}
 
 	if err := os.RemoveAll(TEMP_DIR); err != nil {
@@ -67,7 +68,9 @@ func (b *ContainerBuildCmd) Run() error {
 		fmt.Printf("Downloading %s...\n", platform.Labels.SourceURL)
 		rc, n := downloader(platform.Labels.SourceURL)
 		rc = progress(rc, n, os.Stdout)
-		rc = verifier(rc, platform.Labels.SourceSHA256)
+		if platform.Labels.SourceSHA256 != "" {
+			rc = verifier(rc, platform.Labels.SourceSHA256)
+		}
 		rc = decompresser(rc, platform.Labels.SourceURL)
 		if err := save(rc, workingPath+".part"); err != nil {
 			return fmt.Errorf("%s: %w", platform.Labels.SourceURL, err)
@@ -78,7 +81,7 @@ func (b *ContainerBuildCmd) Run() error {
 		}
 
 		name := b.Tag
-		if len(spec.Platform) > 1 {
+		if len(spec.Platform) > 1 && name != "" {
 			name += "-" + platformName
 			name = strings.ReplaceAll(name, ":", "-")
 			name = strings.ReplaceAll(name, "/", "-")
@@ -89,7 +92,7 @@ func (b *ContainerBuildCmd) Run() error {
 		} else {
 			fmt.Printf("Importing %s...\n", name)
 		}
-		readCloser := guestfish.TarOut(workingPath, "/dev/"+platform.Labels.SourcePartitionsImport)
+		readCloser := guestfish.TarOut(workingPath, "/dev/"+platform.Labels.GetSourcePartitionsImport())
 
 		importOpts := []podman.ImportOption{
 			podman.WithPlatform(platformName),
@@ -109,12 +112,12 @@ func (b *ContainerBuildCmd) Run() error {
 		images = append(images, img.Name)
 	}
 
-	reference := b.Tag
+	var reference string
 	if len(spec.Platform) == 1 {
 		reference = images[0]
 	} else {
-		fmt.Printf("Creating manifest...\n")
-		if err := podman.CreateManifest(reference, images); err != nil {
+		fmt.Printf("Creating manifest %s...\n", b.Manifest)
+		if reference, err = podman.CreateManifest(b.Manifest, images); err != nil {
 			return fmt.Errorf("failed to create manifest: %w", err)
 		}
 	}
@@ -131,7 +134,7 @@ type DiskCmd struct {
 }
 
 type DiskBuildCmd struct {
-	Out           string `help:"File to write to" default:"build/out.img"`
+	Out           string `short:"o" help:"File to write to" default:"build/out.img"`
 	Platform      string `default:"linux/arm64" help:"Set the OS/ARCH[/VARIANT] of the image"`
 	ForceDownload bool   `help:"Force download even if the output file exists"`
 	Verbose       bool   `short:"v" help:"Print paths of all synced files"`
@@ -153,12 +156,12 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 		return fmt.Errorf("failed to build podman image: %w", err)
 	}
 
-	var labels podman.PipodLabels
+	var labels PipodLabels
 	if err := image.UnmarshalLabelsToml(&labels); err != nil {
 		return fmt.Errorf("failed to get image labels: %w", err)
 	}
 
-	if err := labels.Validate(); err != nil {
+	if err := labels.validate(); err != nil {
 		return fmt.Errorf("labels validation failed: %w", err)
 	}
 
@@ -176,7 +179,9 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 		fmt.Printf("Downloading %s...\n", labels.SourceURL)
 		rc, n := downloader(labels.SourceURL)
 		rc = progress(rc, n, os.Stdout)
-		rc = verifier(rc, labels.SourceSHA256)
+		if labels.SourceSHA256 != "" {
+			rc = verifier(rc, labels.SourceSHA256)
+		}
 		rc = decompresser(rc, labels.SourceURL)
 		if err := save(rc, outPart); err != nil {
 			return fmt.Errorf("failed to download %s: %w", labels.SourceURL, err)
@@ -190,7 +195,7 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 	}
 	defer reader.Close()
 
-	fsys, err := aferoguestfs.OpenPartitionFs(outPart, "/dev/"+labels.SourcePartitionsImport)
+	fsys, err := aferoguestfs.OpenPartitionFs(outPart, "/dev/"+labels.GetSourcePartitionsImport())
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
