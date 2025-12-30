@@ -129,8 +129,7 @@ func (b *ContainerBuildCmd) Run() error {
 
 type DiskCmd struct {
 	Build DiskBuildCmd `cmd:"" help:"Build a disk image from a Containerfile"`
-	Sync  DiskSyncCmd  `cmd:"" help:"Sync a disk image from a tar or a container image"`
-	Wifi  DiskWifiCmd  `cmd:"" help:"Set up a wifi connection"`
+	Wifi  DiskWifiCmd  `cmd:"" help:"Setup a wifi connection"`
 }
 
 type DiskBuildCmd struct {
@@ -219,37 +218,48 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 	return nil
 }
 
-type DiskSyncCmd struct {
-	Disk           string   `arg:"" help:"Path to disk image"`
-	Partition      string   `default:"sda2" help:"Partition device (default: sda2)"`
-	Tar            *os.File `xor:"src" required:"" existingfile:"" help:"Sync from a tar archive (cannot be used with --container-image)"`
-	ContainerImage string   `xor:"src" required:"" help:"Sync from a container image (cannot be used with --tar)"`
-	Verbose        bool     `short:"v" help:"Print paths of all synced files"`
+type SyncCmd struct {
+	DestDisk          string   `required:"" help:"Path to the destination disk image"`
+	SrcTar            *os.File `xor:"src" required:"" existingfile:"" help:"Path to the source tar archive (use --tar-src=- to read from stdin, cannot be used with --src-container-image or --disk-src)"`
+	SrcContainerImage string   `xor:"src" required:"" help:"Name of the source container image (cannot be used with --src-tar or --src-disk)"`
+	SrcDisk           string   `xor:"src" required:"" help:"Path to the source disk image (cannot be used with --src-tar --src-container-image)"`
+	Partition         string   `default:"sda2" help:"Partition device (default: sda2)"`
+	Verbose           bool     `short:"v" help:"Print paths of all synced files"`
+	IgnoreErrors      bool     `help:"Skip files that fail to sync"`
 }
 
-func (cmd *DiskSyncCmd) Run() error {
-	afs, err := aferoguestfs.OpenPartitionFs(cmd.Disk, "/dev/"+cmd.Partition)
+func (cmd *SyncCmd) Run() error {
+	afs, err := aferoguestfs.OpenPartitionFs(cmd.DestDisk, "/dev/"+cmd.Partition)
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
 
 	var tarReader *tar.Reader
-	if cmd.Tar != nil {
-		tarReader = tar.NewReader(cmd.Tar)
-		defer cmd.Tar.Close()
-	} else if cmd.ContainerImage != "" {
-		rc, err := podman.Image{Name: cmd.ContainerImage}.TarOut()
+	if cmd.SrcTar != nil {
+		tarReader = tar.NewReader(cmd.SrcTar)
+		defer cmd.SrcTar.Close()
+	} else if cmd.SrcContainerImage != "" {
+		rc, err := podman.Image{Name: cmd.SrcContainerImage}.TarOut()
 		if err != nil {
-			return fmt.Errorf("failed to tar container image %s: %w", cmd.ContainerImage, err)
+			return fmt.Errorf("failed to tar container image %s: %w", cmd.SrcContainerImage, err)
 		}
+		defer rc.Close()
+		tarReader = tar.NewReader(rc)
+	} else if cmd.SrcDisk != "" {
+		rc := guestfish.TarOut(cmd.SrcDisk, "/dev/"+cmd.Partition)
 		defer rc.Close()
 		tarReader = tar.NewReader(rc)
 	}
 
+	var opts []aferosync.Option
+	if cmd.IgnoreErrors {
+		opts = append(opts, aferosync.WithIgnoreErrors(true))
+	}
+
 	if cmd.Verbose {
-		err = aferoSyncVerbose(afs, tarReader, os.Stdout)
+		err = aferoSyncVerbose(afs, tarReader, os.Stdout, opts...)
 	} else {
-		err = aferoSyncCompact(afs, tarReader, os.Stdout)
+		err = aferoSyncCompact(afs, tarReader, os.Stdout, opts...)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to sync: %w", err)
@@ -301,8 +311,8 @@ func (cmd *DiskWifiCmd) Run() error {
 	return nil
 }
 
-func aferoSyncVerbose(afs afero.Fs, tarReader *tar.Reader, w io.Writer) error {
-	sync := aferosync.New(afs, tarReader)
+func aferoSyncVerbose(afs afero.Fs, tarReader *tar.Reader, w io.Writer, opts ...aferosync.Option) error {
+	sync := aferosync.New(afs, tarReader, opts...)
 	for sync.Next() {
 		fmt.Fprintln(w, sync.Update())
 	}
@@ -310,8 +320,8 @@ func aferoSyncVerbose(afs afero.Fs, tarReader *tar.Reader, w io.Writer) error {
 	return sync.Err()
 }
 
-func aferoSyncCompact(afs afero.Fs, tarReader *tar.Reader, w io.Writer) error {
-	sync := aferosync.New(afs, tarReader)
+func aferoSyncCompact(afs afero.Fs, tarReader *tar.Reader, w io.Writer, opts ...aferosync.Option) error {
+	sync := aferosync.New(afs, tarReader, opts...)
 	firstUpdate := true
 	fmt.Fprint(w, sync.Summary())
 	for sync.Next() {

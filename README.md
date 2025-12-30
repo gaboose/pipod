@@ -75,6 +75,22 @@ This will take an arm64 disk image, import its `sda2` partition device into a po
 
 # Reference
 
+## Useful Commands
+
+### Setup Wifi Connection
+
+```
+cat password.txt | pipod disk wifi disk.img --ssid <ssid> --password-stdin
+```
+
+### Set User Password
+
+```
+virt-customize -a <file> --password '<username>:password:<password>'
+```
+
+Replace `<file>` with the disk or partition file, e.g. `/dev/sda`, `/dev/sda2` `./out.img`.
+
 ## Pipod Image
 
 A pipod image is a container image with [required labels](#labels) set. Any container image whose parent is a pipod image is also a pipod image.
