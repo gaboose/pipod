@@ -57,7 +57,7 @@ func (nm *NetworkManager) AddConnection(ssid string, password string) ([]string,
 	}).Parse(nmconnectionTemplate))
 
 	added := []string{}
-	connPath := filepath.Join(NETWORK_MANAGER_DIR, "system-connections", fmt.Sprintf("%s.nmconnection", ssid))
+	connPath := filepath.Join(NETWORK_MANAGER_DIR, "system-connections", "pipod.nmconnection")
 
 	if err := os.MkdirAll(filepath.Dir(connPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to MkdirAll: %w", err)

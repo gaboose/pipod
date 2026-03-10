@@ -11,10 +11,10 @@ import (
 	"github.com/alecthomas/kong"
 	aferoguestfs "github.com/gaboose/afero-guestfs"
 	"github.com/gaboose/aferosync"
+	"github.com/gaboose/pipod/internal/diskconfig"
 	"github.com/gaboose/pipod/internal/guestfish"
 	"github.com/gaboose/pipod/internal/iio"
 	"github.com/gaboose/pipod/internal/podman"
-	"github.com/gaboose/pipod/internal/wifi"
 	"github.com/mholt/archives"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/afero"
@@ -128,8 +128,9 @@ func (b *ContainerBuildCmd) Run() error {
 }
 
 type DiskCmd struct {
-	Build DiskBuildCmd `cmd:"" help:"Build a disk image from a Containerfile"`
-	Wifi  DiskWifiCmd  `cmd:"" help:"Setup a wifi connection"`
+	Build  DiskBuildCmd  `cmd:"" help:"Build a disk image from a Containerfile"`
+	Wifi   DiskWifiCmd   `cmd:"" help:"Setup a wifi connection"`
+	Config DiskConfigCmd `cmd:"" help:"Setup a disk image with a config"`
 }
 
 type DiskBuildCmd struct {
@@ -277,35 +278,76 @@ type DiskWifiCmd struct {
 }
 
 func (cmd *DiskWifiCmd) Run() error {
-	afs, err := aferoguestfs.OpenPartitionFs(cmd.Disk, "/dev/"+cmd.Partition)
-	if err != nil {
-		return fmt.Errorf("failed to open partition: %w", err)
+	w := diskconfig.Wifi{
+		SSID:     cmd.SSID,
+		Password: cmd.Password,
 	}
-	defer afs.Close()
 
 	if cmd.PasswordStdin {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to read form stdin: %w", err)
 		}
-		cmd.Password = strings.TrimSpace(string(buf))
+		w.Password = strings.TrimSpace(string(buf))
 	}
 
-	nm, err := wifi.NewNetworkManager(afs)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("network manager not found")
-	} else if err != nil {
-		return fmt.Errorf("failed to create NetworkManager: %w", err)
-	}
-	fmt.Println("NetworkManager detected")
-
-	addedPaths, err := nm.AddConnection(cmd.SSID, cmd.Password)
+	res, err := w.Setup(cmd.Disk, "/dev/"+cmd.Partition)
 	if err != nil {
-		return fmt.Errorf("failed to add connection profile: %w", err)
+		return err
+	}
+	fmt.Print(res.String())
+
+	return nil
+}
+
+type DiskConfigCmd struct {
+	Disk   string `arg:"" help:"Path to disk image"`
+	Config string `default:"config.toml" help:"Path to config file" type:"existingfile"`
+}
+
+func (cmd *DiskConfigCmd) Run() error {
+	var conf diskconfig.Config
+	data, err := os.ReadFile(cmd.Config)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	for _, path := range addedPaths {
-		fmt.Printf("added %s\n", path)
+	if err := toml.Unmarshal(data, &conf); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	if err := conf.Validate(); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	if conf.Wifi != nil {
+		partition := "/dev/sda2"
+		res, err := conf.Wifi.Setup(cmd.Disk, partition)
+		if err != nil {
+			return fmt.Errorf("failed to setup wifi: %w", err)
+		}
+		fmt.Println(partition)
+		fmt.Print(res.String())
+	}
+
+	if conf.User != nil {
+		partition := "/dev/sda1"
+		res, err := conf.User.Setup(cmd.Disk, partition)
+		if err != nil {
+			return fmt.Errorf("failed to setup user: %w", err)
+		}
+		fmt.Println(partition)
+		fmt.Print(res.String())
+	}
+
+	if conf.SSH != nil {
+		partition := "/dev/sda1"
+		res, err := conf.SSH.Setup(cmd.Disk, partition)
+		if err != nil {
+			return fmt.Errorf("failed to setup user: %w", err)
+		}
+		fmt.Println(partition)
+		fmt.Print(res.String())
 	}
 
 	return nil
