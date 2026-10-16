@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/alecthomas/kong v1.12.0
-	github.com/gaboose/afero-guestfs v0.0.13
+	github.com/gaboose/afero-guestfs v0.0.14
 	github.com/gaboose/aferosync v0.0.4
 	github.com/google/uuid v1.6.0
 	github.com/mholt/archives v0.1.4
