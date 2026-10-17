@@ -15,6 +15,7 @@ import (
 	"github.com/gaboose/pipod/internal/guestfish"
 	"github.com/gaboose/pipod/internal/iio"
 	"github.com/gaboose/pipod/internal/podman"
+	"github.com/gaboose/pipod/internal/wifi"
 	"github.com/mholt/archives"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/afero"
@@ -272,13 +273,13 @@ func (cmd *SyncCmd) Run() error {
 type DiskWifiCmd struct {
 	Disk          string `arg:"" help:"Path to disk image"`
 	Partition     string `default:"sda2" help:"Partition device (default: sda2)"`
-	SSID          string `required:"" help:"SSID fot wifi network to connect to"`
+	SSID          string `required:"" help:"SSID for wifi network to connect to"`
 	Password      string `xor:"P" required:"" help:"Password of the SSID network (cannot be used with --password-stdin)"`
 	PasswordStdin bool   `xor:"P" required:"" help:"Read password from stdin (cannot be used with --password)"`
 }
 
 func (cmd *DiskWifiCmd) Run() error {
-	w := diskconfig.Wifi{
+	w := wifi.Config{
 		SSID:     cmd.SSID,
 		Password: cmd.Password,
 	}
@@ -286,9 +287,13 @@ func (cmd *DiskWifiCmd) Run() error {
 	if cmd.PasswordStdin {
 		buf, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return fmt.Errorf("failed to read form stdin: %w", err)
+			return fmt.Errorf("failed to read from stdin: %w", err)
 		}
-		w.Password = strings.TrimSpace(string(buf))
+		w.Password = strings.TrimRight(string(buf), "\r\n")
+	}
+
+	if err := w.Validate(); err != nil {
+		return err
 	}
 
 	res, err := w.Setup(cmd.Disk, "/dev/"+cmd.Partition)

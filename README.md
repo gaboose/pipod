@@ -51,7 +51,7 @@ That means you won't be able to set up a wifi connection with a `RUN nmcli ...` 
 cat password.txt | pipod disk wifi disk.img --ssid <ssid> --password-stdin
 ```
 
-Note: This subcommand currently only supports NetworkManager but can easily be extended.
+Note: This subcommand supports NetworkManager (e.g. Raspberry Pi OS) and ConnMan (e.g. [Elk Audio OS](https://github.com/elk-audio/elk-pi)) and detects which one the image uses automatically.
 
 ### Building a pipod image
 

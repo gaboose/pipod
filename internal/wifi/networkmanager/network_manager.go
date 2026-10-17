@@ -1,4 +1,4 @@
-package wifi
+package networkmanager
 
 import (
 	_ "embed"
@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/gaboose/pipod/internal/glibkeyfile"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
 )
 
 const (
+	NETWORK_MANAGER_BINARY            = "/usr/sbin/NetworkManager"
 	NETWORK_MANAGER_DIR               = "/etc/NetworkManager"
 	NETWORK_MANAGER_CONF_WIFI_ON_FILE = "/etc/NetworkManager/conf.d/wifi-on.conf"
 	NETWORK_MANAGER_STATE_FILE        = "/var/lib/NetworkManager/NetworkManager.state"
@@ -31,11 +33,11 @@ type NetworkManager struct {
 }
 
 func NewNetworkManager(fs afero.Fs) (*NetworkManager, error) {
-	st, err := fs.Stat(NETWORK_MANAGER_DIR)
+	st, err := fs.Stat(NETWORK_MANAGER_BINARY)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat: %w", err)
-	} else if !st.IsDir() {
-		return nil, fmt.Errorf("%s is not a dir", NETWORK_MANAGER_DIR)
+	} else if st.IsDir() {
+		return nil, fmt.Errorf("%s is a dir", NETWORK_MANAGER_BINARY)
 	}
 
 	return &NetworkManager{
@@ -59,8 +61,8 @@ func (nm *NetworkManager) AddConnection(ssid string, password string) ([]string,
 	added := []string{}
 	connPath := filepath.Join(NETWORK_MANAGER_DIR, "system-connections", "pipod.nmconnection")
 
-	if err := os.MkdirAll(filepath.Dir(connPath), 0755); err != nil {
-		return nil, fmt.Errorf("failed to MkdirAll: %w", err)
+	if err := nm.fs.MkdirAll(filepath.Dir(connPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to MkdirAll %s: %w", filepath.Dir(connPath), err)
 	}
 
 	// Must be unreadable by other users or network manager refuses to use the profile
@@ -68,13 +70,15 @@ func (nm *NetworkManager) AddConnection(ssid string, password string) ([]string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file %s: %w", connPath, err)
 	}
-	defer f.Close()
-
 	if err := t.Execute(f, Details{
-		SSID:     ssid,
-		Password: password,
+		SSID:     glibkeyfile.EscapeValue(ssid),
+		Password: glibkeyfile.EscapeValue(password),
 	}); err != nil {
+		f.Close()
 		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close %s: %w", connPath, err)
 	}
 	added = append(added, connPath)
 
@@ -91,6 +95,9 @@ func (nm *NetworkManager) AddConnection(ssid string, password string) ([]string,
 		contents: networkManagerStateContents,
 		mode:     0644,
 	}} {
+		if err := nm.fs.MkdirAll(filepath.Dir(fileToWrite.path), 0755); err != nil {
+			return nil, fmt.Errorf("failed to MkdirAll %s: %w", filepath.Dir(fileToWrite.path), err)
+		}
 		if err := afero.WriteFile(nm.fs, fileToWrite.path, fileToWrite.contents, fileToWrite.mode); err != nil {
 			return nil, fmt.Errorf("failed to write file %s: %w", fileToWrite.path, err)
 		}

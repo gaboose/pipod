@@ -1,0 +1,4 @@
+[service_pipod]
+Type = wifi
+SSID = {{ .SSID }}
+Passphrase = {{ .Password }}

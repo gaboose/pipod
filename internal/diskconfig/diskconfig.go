@@ -2,7 +2,6 @@ package diskconfig
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	aferoguestfs "github.com/gaboose/afero-guestfs"
@@ -12,9 +11,9 @@ import (
 )
 
 type Config struct {
-	Wifi *Wifi `toml:"wifi"`
-	User *User `toml:"user"`
-	SSH  *SSH  `toml:"ssh"`
+	Wifi *wifi.Config `toml:"wifi"`
+	User *User        `toml:"user"`
+	SSH  *SSH         `toml:"ssh"`
 }
 
 func (c *Config) Validate() error {
@@ -37,68 +36,6 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-}
-
-type Wifi struct {
-	SSID     string `toml:"ssid"`
-	Password string `toml:"password"`
-}
-
-type WifiSetupResult struct {
-	Kind       string
-	AddedPaths []string
-}
-
-func (r WifiSetupResult) String() string {
-	var s strings.Builder
-
-	if r.Kind != "" {
-		fmt.Fprintf(&s, "%s detected\n", r.Kind)
-	}
-
-	for _, path := range r.AddedPaths {
-		fmt.Fprintf(&s, "added %s\n", path)
-	}
-
-	return s.String()
-}
-
-func (w *Wifi) Validate() error {
-	if w.SSID == "" {
-		return fmt.Errorf("ssid must be set in config")
-	}
-
-	if w.Password == "" {
-		return fmt.Errorf("password must be set in config")
-	}
-
-	return nil
-}
-
-func (w *Wifi) Setup(disk string, partition string) (WifiSetupResult, error) {
-	afs, err := aferoguestfs.OpenPartitionFs(disk, partition)
-	if err != nil {
-		return WifiSetupResult{}, fmt.Errorf("failed to open partition: %w", err)
-	}
-	defer afs.Close()
-
-	nm, err := wifi.NewNetworkManager(afs)
-	if os.IsNotExist(err) {
-		return WifiSetupResult{}, fmt.Errorf("network manager not found")
-	} else if err != nil {
-		return WifiSetupResult{}, fmt.Errorf("failed to create NetworkManager: %w", err)
-	}
-
-	res := WifiSetupResult{
-		Kind: "NetworkManager",
-	}
-
-	res.AddedPaths, err = nm.AddConnection(w.SSID, w.Password)
-	if err != nil {
-		return WifiSetupResult{}, fmt.Errorf("failed to add connection profile: %w", err)
-	}
-
-	return res, nil
 }
 
 type User struct {
