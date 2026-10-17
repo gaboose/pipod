@@ -127,7 +127,7 @@ func mergeKeyFiles(file1 []byte, file2 []byte) ([]byte, error) {
 
 	buf := bytes.NewBuffer(nil)
 	if _, err := cfg1.WriteTo(buf); err != nil {
-		return nil, fmt.Errorf("failed to write to buf: %w")
+		return nil, fmt.Errorf("failed to write to buf: %w", err)
 	}
 
 	return buf.Bytes(), nil

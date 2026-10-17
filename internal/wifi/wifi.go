@@ -65,7 +65,11 @@ func (c *Config) Setup(disk string, partition string) (SetupResult, error) {
 	if err != nil {
 		return SetupResult{}, fmt.Errorf("failed to open partition: %w", err)
 	}
-	defer afs.Close()
+	defer func() {
+		if cerr := afs.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close partition: %w", cerr)
+		}
+	}()
 
 	type connectionAdder interface {
 		AddConnection(ssid string, password string) ([]string, error)

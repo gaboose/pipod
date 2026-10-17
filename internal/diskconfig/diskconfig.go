@@ -74,7 +74,11 @@ func (u *User) Setup(disk string, partition string) (UserSetupResult, error) {
 	if err != nil {
 		return UserSetupResult{}, fmt.Errorf("failed to open partition: %w", err)
 	}
-	defer afs.Close()
+	defer func() {
+		if cerr := afs.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close partition: %w", cerr)
+		}
+	}()
 
 	passwordHash, err := openssl.Passwd(u.Password)
 	if err != nil {
@@ -119,7 +123,11 @@ func (s *SSH) Setup(disk string, partition string) (SSHSetupResult, error) {
 	if err != nil {
 		return SSHSetupResult{}, fmt.Errorf("failed to open partition: %w", err)
 	}
-	defer afs.Close()
+	defer func() {
+		if cerr := afs.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close partition: %w", cerr)
+		}
+	}()
 
 	if err = afero.WriteFile(afs, "/ssh.txt", nil, 0644); err != nil {
 		return SSHSetupResult{}, fmt.Errorf("failed to write /ssh.txt: %w", err)

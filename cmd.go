@@ -200,6 +200,11 @@ func (b *DiskBuildCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
+	defer func() {
+		if cerr := fsys.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close partition: %w", cerr)
+		}
+	}()
 
 	if b.Verbose {
 		err = aferoSyncVerbose(fsys, tar.NewReader(reader), aferoSyncStdout)
@@ -235,6 +240,11 @@ func (cmd *SyncCmd) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to open partition: %w", err)
 	}
+	defer func() {
+		if cerr := afs.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close partition: %w", cerr)
+		}
+	}()
 
 	var tarReader *tar.Reader
 	if cmd.SrcTar != nil {
