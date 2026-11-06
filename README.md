@@ -77,13 +77,13 @@ This will take an arm64 disk image, import its `sda2` partition device into a po
 
 ## Useful Commands
 
-### Setup Wifi Connection
+### Setup wifi connection
 
 ```
 cat password.txt | pipod disk wifi <diskimage> --ssid <ssid> --password-stdin
 ```
 
-### Setup User and Password on RaspiOS
+### Setup user and password on RaspiOS
 
 ```
 guestfish -a <diskimage> -m /dev/sda1:/ -i write "/userconf.txt" "pi:$(openssl passwd -6)"
