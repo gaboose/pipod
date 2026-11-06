@@ -2,7 +2,7 @@
 
 Containerfile-based Raspberry Pi image builder inspired by [pidock](https://github.com/eringr/pidock).
 
-## Installation
+## Install
 
 Pipod depends on your system having [Podman](https://podman.io), [libguestfs](https://libguestfs.org) and [qemu-user-static](https://www.qemu.org) installed.
 
@@ -20,7 +20,7 @@ go install github.com/gaboose/pipod
 
 ## How to Use
 
-### Building a disk image
+### Build a disk image
 
 Once installed, building a new image is only two steps:
 
@@ -53,7 +53,7 @@ cat password.txt | pipod disk wifi disk.img --ssid <ssid> --password-stdin
 
 Note: This subcommand supports NetworkManager (e.g. Raspberry Pi OS) and ConnMan (e.g. [Elk Audio OS](https://github.com/elk-audio/elk-pi)) and detects which one the image uses automatically.
 
-### Building a pipod image
+### Build a pipod image
 
 If you don't want to use `ghcr.io/gaboose/raspios`, building your own pipod image is pretty easy too.
 
